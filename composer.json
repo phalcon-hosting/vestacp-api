@@ -1,0 +1,22 @@
+{
+    "name": "phalcon-hosting/vestacp-api",
+    "description": "API Wrapper for the VestaCP Control Panel",
+    "keywords": ["vesta","vestacp","api wrapper","phalcon","phalcon hosting"],
+    "homepage": "http://www.phalconhosting.com",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Stephen Hoogendijk",
+            "email": "stephen@tca0.nl",
+            "homepage": "http://stephen.tca0.nl",
+            "role": "Developer"
+        }
+    ],
+    "autoload": {
+        "psr-0": { "VestaCP\\": "src/" }
+    },
+    "require": {
+        "php":              ">=5.3.0"
+    },
+    "minimum-stability": "dev"
+}
