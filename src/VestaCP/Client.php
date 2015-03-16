@@ -7,7 +7,9 @@ namespace VestaCP;
 
 use VestaCP\Command\AddUserCommand;
 use VestaCP\Command\CommandInterface;
+use VestaCP\Command\Map\User;
 use VestaCP\HTTP\Client as httpClient;
+use VestaCP\Command\Exception as CommandException;
 
 class Client
 {
@@ -60,6 +62,17 @@ class Client
     protected $http;
 
     /**
+     * Command maps below
+     */
+
+    /**
+     * User command map
+     *
+     * @var User
+     */
+    public $user;
+
+    /**
      * Create the client object
      *
      * @param string $hostIp
@@ -76,84 +89,72 @@ class Client
         }
 
         $hostPort = (int) $hostPort;
-
         $this->http = new httpClient(sprintf('https://%s:%d/api/', $hostIp, $hostPort));
 
         $this->adminUsername = $adminUsername;
         $this->adminPassword = $adminPassword;
+
+        // register command maps
+        $this->user = new User($this);
     }
 
     /**
      * @param CommandInterface $command
      * @param array|string     $args
      *
-     * @return mixed
+     * @throws CommandException
      * @throws Exception
+     * @return mixed
      */
     public function execute(CommandInterface $command, $args)
     {
-        $general = array(
-            'user' => $this->adminUsername,
-            'password'=> $this->adminPassword,
-            'returncode' => $command->getReturnCode(),
-            'cmd' => $command->getCommand()
-        );
+        $return = false;
 
-        $argumentArray = array();
+        if ($result = $command->run($args)) {
 
-        for($i=0; $i < count($args); $i++) {
-            $argumentArray['arg'.($i+1)] = $args[$i];
+            $general = array(
+                'user' => $this->adminUsername,
+                'password'=> $this->adminPassword,
+                'returncode' => $command->getReturnCode(),
+                'cmd' => $command->getCommand()
+            );
+
+            $argumentArray = array();
+            ;
+            for($i=0; $i < count($args); $i++) {
+                $argumentArray['arg'.($i+1)] = $args[$i];
+            }
+
+            $postVars = array_merge($general, $argumentArray);
+            $commandResult = $this->http->send($postVars);
+
+            if ($commandResult == self::RESULT_E_PASSWORD) {
+                throw new CommandException('Invalid password', self::RESULT_E_PASSWORD);
+            } elseif ($commandResult == self::RESULT_E_DISK) {
+                throw new CommandException('Not enough free diskspace to perform the request', self::RESULT_E_DISK);
+            } elseif ($commandResult == self::RESULT_E_ARGS) {
+                throw new CommandException('Incorrect usage; invalid or missing arguments',self::RESULT_E_ARGS);
+            } elseif ($commandResult == self::RESULT_E_LIMIT) {
+                throw new CommandException('Hosting package limits reached', self::RESULT_E_LIMIT);
+            } elseif ($commandResult == self::RESULT_E_EXISTS) {
+                throw new CommandException('Given object already exists', self::RESULT_E_EXISTS);
+            }
+
+            $result = $command->check($commandResult);
+
+            if ($result == null) {
+                throw new Exception('Command should either return true or false in the check() method', ErrorCodes::ERROR_INVALID_COMMAND);
+            }
+
+            // return true if the command executed successfully
+            $return = ($result && $commandResult == self::RESULT_OK);
         }
 
-        $postVars = array_merge($general, $argumentArray);
-        $result = $this->http->send($postVars);
-
-        if ($result == self::RESULT_E_PASSWORD) {
-            throw new Exception('Invalid password', ErrorCodes::ERROR_CANNOT_CONNECT_TO_HOST);
-        } elseif ($result == self::RESULT_E_DISK) {
-            throw new Exception('Not enough free diskspace to perform the request', ErrorCodes::ERROR_HOST);
-        }elseif ($result == self::RESULT_E_LIMIT) {
-            throw new Exception('Hosting package limits reached', ErrorCodes::ERROR_LIMITS_REACHED);
+        if ($result == null) {
+            throw new Exception('Command should either return true or false in the run() method', ErrorCodes::ERROR_INVALID_COMMAND);
         }
 
-        return $result;
-
-    }
-
-    /**
-     * @param string $userName
-     * @param string $password
-     * @param string $email
-     * @param string $package
-     * @param string $firstName
-     * @param string $lastName
-     *
-     * @throws Exception
-     * @return mixed
-     */
-    public function addUser($userName, $password, $email, $package = 'default', $firstName = '', $lastName = '')
-    {
-
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new Exception('Invalid email given', ErrorCodes::ERROR_ADD_USER);
-        }
-
-        $command = new AddUserCommand();
-
-        $returnCode = $this->execute($command, array(
-            $userName,
-            $password,
-            $email,
-            $package,
-            $firstName,
-            $lastName
-        ));
-
-        if ($returnCode == self::RESULT_E_EXISTS) {
-            throw new Exception(sprintf('User %s already exists', $userName), ErrorCodes::ERROR_ADD_USER);
-        }
-
-        return $returnCode == self::RESULT_OK;
+        return $return;
     }
 
 }

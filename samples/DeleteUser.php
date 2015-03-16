@@ -15,10 +15,10 @@ $password = $settings['password'];
 
 $client = new Client($host, $port, $username, $password);
 
-$result = $client->user->add('johndoe', 'testtest', 'test@phalconhosting.com', 'default', 'John', 'Doe');
+$result = $client->user->delete('johndoe');
 
 if ($result) {
-    echo 'User created successfully.'.PHP_EOL;
+    echo 'User deleted successfully.'.PHP_EOL;
 } else {
-    echo 'User could not be created.'.PHP_EOL;
+    echo 'User could not be deleted.'.PHP_EOL;
 }
