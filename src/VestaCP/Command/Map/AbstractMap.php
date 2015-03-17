@@ -14,7 +14,7 @@ use VestaCP\Command\CommandInterface;
  *
  * @package VestaCP\Command\Map
  */
-abstract class AbstractMap implements MapInterface
+abstract class AbstractMap
 {
     /**
      * @var Client
